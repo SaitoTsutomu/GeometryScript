@@ -41,7 +41,7 @@ class CGS_OT_geometry_exec(bpy.types.Operator):
             self.report({"WARNING"}, "Not code.")
             return {"CANCELLED"}
         modifiers = next(iter([m for m in obj.modifiers if m.type == "NODES"]), None)
-        if not modifiers:
+        if modifiers:
             self.report({"WARNING"}, "Delete modifier of geometry node.")
             return {"CANCELLED"}
         modifiers = bpy.context.object.modifiers.new("GeometryNodes", "NODES")
