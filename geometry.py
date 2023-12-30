@@ -30,8 +30,8 @@ def new(nodes, bl_idname, inputs=None, **kwargs):
         value = kwargs.get(name)
         if value and isinstance(value, typ):
             setattr(nd, name, value)
-    for name, value in inputs or {}:
-        nd.inputs[name] = value
+    for name, value in (inputs or {}).items():
+        nd.inputs[name].default_value = value
 
 
 def conv_value(value, dtype=None) -> str:
@@ -49,27 +49,27 @@ def conv_value(value, dtype=None) -> str:
 def script_add_geometry(node_group, var_name="node_group"):
     buf = []
     wr = buf.append
-    wr(f"nodes = {var_name}.nodes")
+    wr(f"nodes = {var_name}.nodes\n")
     for item in node_group.interface.items_tree:
         nm, io, st = item.name, item.in_out, item.socket_type
-        wr(f'{var_name}.interface.new_socket("{nm}", in_out="{io}", socket_type="{st}")')
+        wr(f'{var_name}.interface.new_socket("{nm}", in_out="{io}", socket_type="{st}")\n')
     for node in node_group.nodes:
-        wr(f'new(nodes, "{node.bl_idname}", {{', end="")
+        wr(f'new(nodes, "{node.bl_idname}", {{')
         for name, it in node.inputs.items():
             if not name:
                 break
             if not it.links:
-                wr(f'"{name}": "{to_s(it.default_value)}, ', end="")
-        wr("}", end="")
+                wr(f'"{name}": {repr(conv_value(it.default_value))}, ')
+        wr("}")
         for name in ATTRIBUTES:
             value = getattr(node, name, None)
             if value:
-                wr(f", {name}={repr(to_s(value))}", end="")
-        wr(")")
+                wr(f", {name}={repr(conv_value(value))}")
+        wr(")\n")
     for link in node_group.links:
         fn = link.from_node.name
         fs = link.from_socket.name
         tn = link.to_node.name
         ts = link.to_socket.name
-        wr(f'{var_name}.links.new(nodes["{fn}"].outputs["{fs}"], nodes["{tn}"].inputs["{ts}"])')
-    return "\n".join(buf)
+        wr(f'{var_name}.links.new(nodes["{fn}"].outputs["{fs}"], nodes["{tn}"].inputs["{ts}"])\n')
+    return "".join(buf)

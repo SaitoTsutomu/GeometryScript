@@ -1,4 +1,5 @@
 import bpy
+import mathutils
 
 from .geometry import conv_value, new, script_add_geometry
 from .register_class import _get_cls, operator
@@ -41,11 +42,12 @@ class CGS_OT_geometry_exec(bpy.types.Operator):
             return {"CANCELLED"}
         modifiers = next(iter([m for m in obj.modifiers if m.type == "NODES"]), None)
         if not modifiers:
-            modifiers = bpy.context.object.modifiers.new("GeometryNodes", "NODES")
-        if not modifiers.node_group:
-            modifiers.node_group = bpy.data.node_groups.new("Geometry Nodes", "GeometryNodeTree")
+            self.report({"WARNING"}, "Delete modifier of geometry node.")
+            return {"CANCELLED"}
+        modifiers = bpy.context.object.modifiers.new("GeometryNodes", "NODES")
+        modifiers.node_group = bpy.data.node_groups.new("Geometry Nodes", "GeometryNodeTree")
+        node_group = modifiers.node_group
         exec(code)
-        ops_func(bpy.ops.node.view_all, "NODE_EDITOR")
         return {"FINISHED"}
 
 
@@ -58,21 +60,6 @@ class CGS_PT_bit(bpy.types.Panel):
     def draw(self, context):
         operator(self.layout, CGS_OT_geometry_copy)
         operator(self.layout, CGS_OT_geometry_exec)
-
-
-def ops_func(func, area_type, region_type="WINDOW"):
-    for area in bpy.context.screen.areas:
-        if area.type == area_type:
-            for region in area.regions:
-                if region.type == region_type:
-                    ctx = bpy.context.copy()
-                    ctx["area"] = area
-                    ctx["region"] = region
-                    try:
-                        func(ctx)
-                    except RuntimeError:
-                        pass
-                    return
 
 
 # __init__.pyで使用
