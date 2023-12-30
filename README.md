@@ -1,22 +1,20 @@
-## Blender Add-on: GeometryTools
+## Blender Add-on: GeometryScript
 
-Serialize/Deserialize geometry nodes.
+Create and run Python scripts from geometry nodes.
 
 ## Installation
 
-- Download https://github.com/SaitoTsutomu/GeometryTools/archive/refs/heads/master.zip
+- Download https://github.com/SaitoTsutomu/GeometryScript/archive/refs/heads/master.zip
 - Start Blender.
 - Edit menu -> Preferences
   - Select the "Add-ons" tab.
   - Press the "Install ...".
   - Select the downloaded ZIP file and press the button "Install Add-on".
-  - Check the "Object: GeometryTools".
+  - Check the "Object: GeometryScript".
 
 ## Usage
 
 - Open geometry node editor.
 - Show the sidebar and select the Edit tab.
 - Push "Copy".
-- Push "Paste" at another objects.
-
-https://qiita.com/SaitoTsutomu/items/7213552baf9b65de3df6
+- Push "Exec" at another objects.

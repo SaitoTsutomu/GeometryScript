@@ -1,18 +1,15 @@
 import bpy
 
-from .geometry import dump_geometry_node, load_geometry_node
+from .geometry import conv_value, new, script_add_geometry
 from .register_class import _get_cls, operator
 
 
-class CGT_OT_geometry_copy(bpy.types.Operator):
+class CGS_OT_geometry_copy(bpy.types.Operator):
     """Copy nodes"""
 
     bl_idname = "object.geometry_copy"
     bl_label = "Copy"
-    bl_description = "Serialize geometry nodes."
-
-    simple: bpy.props.BoolProperty() = bpy.props.BoolProperty()  # type: ignore
-    idname: bpy.props.BoolProperty() = bpy.props.BoolProperty()  # type: ignore
+    bl_description = "Copy script of geometry nodes."
 
     def execute(self, context):
         if not (obj := bpy.context.object):
@@ -22,47 +19,45 @@ class CGT_OT_geometry_copy(bpy.types.Operator):
         if not modifiers or not modifiers.node_group:
             self.report({"WARNING"}, "Add geometry node.")
             return {"CANCELLED"}
-        bpy.context.window_manager.clipboard = dump_geometry_node(
-            simple=self.simple, idname=self.idname
-        )
+        bpy.context.window_manager.clipboard = script_add_geometry(modifiers.node_group)
         self.report({"INFO"}, "Copied to clipboard.")
         return {"FINISHED"}
 
 
-class CGT_OT_geometry_paste(bpy.types.Operator):
-    """Paste nodes"""
+class CGS_OT_geometry_exec(bpy.types.Operator):
+    """Execute script"""
 
-    bl_idname = "object.geometry_paste"
-    bl_label = "Paste"
-    bl_description = "Deserialize geometry nodes."
+    bl_idname = "object.geometry_exec"
+    bl_label = "Exec"
+    bl_description = "Execute script."
 
     def execute(self, context):
         if not (obj := bpy.context.object):
             self.report({"WARNING"}, "Select object.")
+            return {"CANCELLED"}
+        code = str(bpy.context.window_manager.clipboard)
+        if not code.startswith("nodes = "):
+            self.report({"WARNING"}, "Not code.")
             return {"CANCELLED"}
         modifiers = next(iter([m for m in obj.modifiers if m.type == "NODES"]), None)
         if not modifiers:
             modifiers = bpy.context.object.modifiers.new("GeometryNodes", "NODES")
         if not modifiers.node_group:
             modifiers.node_group = bpy.data.node_groups.new("Geometry Nodes", "GeometryNodeTree")
-        load_geometry_node(str(bpy.context.window_manager.clipboard))
+        exec(code)
         ops_func(bpy.ops.node.view_all, "NODE_EDITOR")
         return {"FINISHED"}
 
 
-class CGT_PT_bit(bpy.types.Panel):
-    bl_label = "GeometryTools"
+class CGS_PT_bit(bpy.types.Panel):
+    bl_label = "GeometryScript"
     bl_space_type = "NODE_EDITOR"
     bl_region_type = "UI"
     bl_category = "Edit"
 
     def draw(self, context):
-        self.layout.prop(context.scene, "simple", text="Simple")
-        self.layout.prop(context.scene, "idname", text="Has bl_idname")
-        prop = operator(self.layout, CGT_OT_geometry_copy)
-        prop.simple = context.scene.simple
-        prop.idname = context.scene.idname
-        operator(self.layout, CGT_OT_geometry_paste)
+        operator(self.layout, CGS_OT_geometry_copy)
+        operator(self.layout, CGS_OT_geometry_exec)
 
 
 def ops_func(func, area_type, region_type="WINDOW"):
