@@ -1,7 +1,8 @@
+# mypy: ignore-errors
 import bpy
-import mathutils
+import mathutils  # noqa: F401
 
-from .geometry import conv_value, new, script_add_geometry
+from .geometry import conv_value, new, script_add_geometry  # noqa: F401
 from .register_class import _get_cls, operator
 
 
@@ -46,7 +47,7 @@ class CGS_OT_geometry_exec(bpy.types.Operator):
             return {"CANCELLED"}
         modifiers = bpy.context.object.modifiers.new("GeometryNodes", "NODES")
         modifiers.node_group = bpy.data.node_groups.new("Geometry Nodes", "GeometryNodeTree")
-        node_group = modifiers.node_group
+        node_group = modifiers.node_group  # noqa: F841
         exec(code)
         return {"FINISHED"}
 

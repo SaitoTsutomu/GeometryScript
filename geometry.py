@@ -7,7 +7,8 @@ mod.node_group = node_group
 「script_add_geometry(node_group)」の内容をペースト
 ```
 """
-import bpy
+# mypy: ignore-errors
+import bpy  # noqa: F401
 import mathutils
 
 ATTRIBUTES = {
