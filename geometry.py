@@ -94,10 +94,7 @@ def script_add_geometry(node_group, var_name="node_group"):
 
 def socket_name(node, socket, lst):
     nd_name = repr(node.name)
-    sc_name = repr(socket.name)
-    if socket.name in {"Geometry", "Value", "Vector"} or node.bl_idname == "GeometryNodeGroup":
-        for i, sct in enumerate(lst):
-            if sct.identifier == socket.identifier:
-                break
-        sc_name = i
-    return nd_name, sc_name
+    for i, sct in enumerate(lst):
+        if sct.identifier == socket.identifier:
+            break
+    return nd_name, i
