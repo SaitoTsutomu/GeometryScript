@@ -44,7 +44,7 @@ def new(nodes, bl_idname, inputs=None, **kwargs):
         nd.inputs[name].default_value = value
 
 
-def conv_value(name, value, dtype=None) -> str:
+def conv_value(name, value, dtype=None):
     if name == "mapping":
         return [
             (pnt.handle_type, round(pnt.location.x, 4), round(pnt.location.y, 4))
@@ -71,12 +71,12 @@ def script_add_geometry(node_group, var_name="node_group"):
         nm, io, st = item.name, item.in_out, item.socket_type
         wr(f'{var_name}.interface.new_socket("{nm}", in_out="{io}", socket_type="{st}")\n')
     for node in node_group.nodes:
-        inpt = {}
+        input_dc = {}
         for name, it in node.inputs.items():
             if name and not it.is_unavailable and not it.links:
-                inpt[name] = conv_value(name, it.default_value)
-        inptdc = f", {repr(inpt)}" if inpt else ""
-        wr(f'new(nodes, "{node.bl_idname}"{inptdc}')
+                input_dc[name] = conv_value(name, it.default_value)
+        _s = f", {repr(input_dc)}" if input_dc else ""
+        wr(f'new(nodes, "{node.bl_idname}"{_s}')
         for name in ATTRIBUTES:
             value = getattr(node, name, None)
             ignore = not value
@@ -95,7 +95,7 @@ def script_add_geometry(node_group, var_name="node_group"):
 def socket_name(node, socket, lst):
     nd_name = repr(node.name)
     sc_name = repr(socket.name)
-    if socket.name in {"Vector", "Value"} or node.bl_idname == "GeometryNodeGroup":
+    if socket.name in {"Geometry", "Value", "Vector"} or node.bl_idname == "GeometryNodeGroup":
         for i, sct in enumerate(lst):
             if sct.identifier == socket.identifier:
                 break
