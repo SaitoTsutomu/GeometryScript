@@ -16,7 +16,7 @@ ATTRIBUTES = {
     "location": list,
     "label": str,
     "hide": bool,
-    "mapping": object,
+    "mapping": list,
     "mute": bool,
     "mode": str,
     "data_type": str,
