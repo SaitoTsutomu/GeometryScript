@@ -15,14 +15,17 @@ ATTRIBUTES = {
     "name": str,
     "location": list,
     "label": str,
-    "hide": bool,
-    "mapping": list,
-    "mute": bool,
-    "mode": str,
+    "color": list,
     "data_type": str,
     "domain": str,
-    "operation": str,
     "fill_type": str,
+    "hide": bool,
+    "mapping": object,
+    "mute": bool,
+    "mode": str,
+    "operation": str,
+    "parent": object,
+    "use_custom_color": bool,
     "width": int,
 }
 
@@ -45,7 +48,9 @@ def new(nodes, bl_idname, inputs=None, **kwargs):
 
 
 def conv_value(name, value, dtype=None):
-    if name == "mapping":
+    if name == "parent":
+        return f"nodes['{value.name}']"
+    elif name == "mapping":
         return [
             (pnt.handle_type, round(pnt.location.x, 4), round(pnt.location.y, 4))
             for pnt in value.curves[0].points
@@ -70,6 +75,7 @@ def script_add_geometry(node_group, var_name="node_group"):
     for item in node_group.interface.items_tree:
         nm, io, st = item.name, item.in_out, item.socket_type
         wr(f'{var_name}.interface.new_socket("{nm}", in_out="{io}", socket_type="{st}")\n')
+    loc = []
     for node in node_group.nodes:
         input_dc = {}
         for name, it in node.inputs.items():
@@ -77,14 +83,25 @@ def script_add_geometry(node_group, var_name="node_group"):
                 input_dc[name] = conv_value(name, it.default_value)
         _s = f", {repr(input_dc)}" if input_dc else ""
         wr(f'new(nodes, "{node.bl_idname}"{_s}')
+        use_custom_color = getattr(node, "use_custom_color", False)
         for name in ATTRIBUTES:
+            if name == "color" and not use_custom_color:
+                continue
             value = getattr(node, name, None)
+            if name == "location" and isinstance(node, bpy.types.NodeFrame):
+                loc.append((node.name, conv_value(name, value)))
+                continue
             ignore = not value
             if name == "width" and value == 140:
                 ignore = True
             if not ignore:
-                wr(f", {name}={repr(conv_value(name, value))}")
+                out = conv_value(name, value)
+                if name != "parent":
+                    out = repr(out)
+                wr(f", {name}={out}")
         wr(")\n")
+    for name, location in loc:
+        wr(f'nodes["{name}"].location = {location}\n')
     for link in node_group.links:
         fn, fs = socket_name(link.from_node, link.from_socket, link.from_node.outputs)
         tn, ts = socket_name(link.to_node, link.to_socket, link.to_node.inputs)
