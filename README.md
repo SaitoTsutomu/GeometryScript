@@ -18,3 +18,7 @@ Create and run Python scripts from geometry nodes.
 - Show the sidebar and select the Edit tab.
 - Push "Copy".
 - Push "Exec" at another objects.
+
+## Reference
+
+[Blenderで鉄板を作成](https://qiita.com/SaitoTsutomu/items/7c96f67cfb88cc39d9f3)

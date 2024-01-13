@@ -17,11 +17,15 @@ class CGS_OT_geometry_copy(bpy.types.Operator):
         if not (obj := bpy.context.object):
             self.report({"WARNING"}, "Select object.")
             return {"CANCELLED"}
-        modifiers = next(iter([m for m in obj.modifiers if m.type == "NODES"]), None)
-        if not modifiers or not modifiers.node_group:
+        modifier = next(iter([m for m in obj.modifiers if m.type == "NODES"]), None)
+        if not modifier or not modifier.node_group:
             self.report({"WARNING"}, "Add geometry node.")
             return {"CANCELLED"}
-        bpy.context.window_manager.clipboard = script_add_geometry(modifiers.node_group)
+        result = script_add_geometry(modifier.node_group)
+        if not result:
+            self.report({"WARNING"}, "Not DAG with node groups.")
+            return {"CANCELLED"}
+        bpy.context.window_manager.clipboard = result
         self.report({"INFO"}, "Copied to clipboard.")
         return {"FINISHED"}
 
@@ -38,16 +42,12 @@ class CGS_OT_geometry_exec(bpy.types.Operator):
             self.report({"WARNING"}, "Select object.")
             return {"CANCELLED"}
         code = str(bpy.context.window_manager.clipboard)
-        if not code.startswith("nodes = "):
+        if not code.startswith("node_groups = "):
             self.report({"WARNING"}, "Not code.")
             return {"CANCELLED"}
-        modifiers = next(iter([m for m in obj.modifiers if m.type == "NODES"]), None)
-        if modifiers:
-            self.report({"WARNING"}, "Delete modifier of geometry node.")
-            return {"CANCELLED"}
-        modifiers = bpy.context.object.modifiers.new("GeometryNodes", "NODES")
-        modifiers.node_group = bpy.data.node_groups.new("Geometry Nodes", "GeometryNodeTree")
-        node_group = modifiers.node_group  # noqa: F841
+        modifier = next(iter(m for m in obj.modifiers if m.type == "NODES"), None)
+        if not modifier:
+            modifier = obj.modifiers.new("GeometryNodes", "NODES")
         exec(code)
         return {"FINISHED"}
 

@@ -1,13 +1,15 @@
 """
-オブジェクト`obj`のジオメトリーノードを作成するには、下記のようにします。
-```
-node_group = bpy.data.node_groups.new("Geometry Nodes", "GeometryNodeTree")
-mod = obj.modifiers.new("GeometryNodes", "NODES")
-mod.node_group = node_group
-「script_add_geometry(node_group)」の内容をペースト
-```
+単独で、オブジェクトとそのジオメトリーノードを作成するには、下記のようにします。
+- 下記のここからここまでをペースト
+- オブジェクトを作成または参照
+- `modifier = bpy.context.object.modifiers.new("GeometryNodes", "NODES")`
+- アドオンのコピーの内容をペースト
 """
 # mypy: ignore-errors
+from collections import defaultdict
+from typing import Iterable
+
+# ----ここから
 import bpy  # noqa: F401
 import mathutils
 
@@ -47,6 +49,9 @@ def new(nodes, bl_idname, inputs=None, **kwargs):
         nd.inputs[name].default_value = value
 
 
+# ----ここまで
+
+
 def conv_value(name, value, dtype=None):
     if name == "parent":
         return f"nodes['{value.name}']"
@@ -63,49 +68,88 @@ def conv_value(name, value, dtype=None):
         value = [dtype(i) for i in value]
     elif dtype:
         value = dtype(value)
-        if isinstance(value, float):
-            value = round(value, 4)
+    if isinstance(value, float):
+        value = round(value, 4)
     return value
 
 
-def script_add_geometry(node_group, var_name="node_group"):
+def topological_sort(
+    original_node_groups: Iterable[bpy.types.NodeTree],
+) -> list[bpy.types.GeometryNodeGroup] | None:
+    """Node Groupの参照先が先になるようにソート"""
+    node_groups: list[bpy.types.GeometryNodeGroup] = []
+    node_trees: set[bpy.types.NodeTree] = set()
+    refs = defaultdict(set)
+    for node_tree in original_node_groups:
+        node_trees.add(node_tree)
+        for node in node_tree.nodes:
+            if node.bl_idname == "GeometryNodeGroup" and node.node_tree:
+                refs[node.node_tree].add(node_tree)
+    while node_trees:
+        node_tree = next(iter(nt for nt in node_trees if not refs.get(nt)), None)
+        if not node_tree:
+            return None
+        node_groups.append(node_tree)
+        node_trees.remove(node_tree)
+        for ref in refs.values():
+            if node_tree in ref:
+                ref.remove(node_tree)
+    return list(reversed(node_groups))
+
+
+def script_add_geometry(target_node_tree):
+    node_groups = topological_sort(bpy.data.node_groups)
+    if node_groups is None:
+        return ""
     buf = []
     wr = buf.append
-    wr(f"nodes = {var_name}.nodes\n")
-    for item in node_group.interface.items_tree:
-        nm, io, st = item.name, item.in_out, item.socket_type
-        wr(f'{var_name}.interface.new_socket("{nm}", in_out="{io}", socket_type="{st}")\n')
-    loc = []
-    for node in node_group.nodes:
-        input_dc = {}
-        for name, it in node.inputs.items():
-            if name and not it.is_unavailable and not it.links:
-                input_dc[name] = conv_value(name, it.default_value)
-        _s = f", {repr(input_dc)}" if input_dc else ""
-        wr(f'new(nodes, "{node.bl_idname}"{_s}')
-        use_custom_color = getattr(node, "use_custom_color", False)
-        for name in ATTRIBUTES:
-            if name == "color" and not use_custom_color:
-                continue
-            value = getattr(node, name, None)
-            if name == "location" and isinstance(node, bpy.types.NodeFrame):
-                loc.append((node.name, conv_value(name, value)))
-                continue
-            ignore = not value
-            if name == "width" and value == 140:
-                ignore = True
-            if not ignore:
-                out = conv_value(name, value)
-                if name != "parent":
-                    out = repr(out)
-                wr(f", {name}={out}")
-        wr(")\n")
-    for name, location in loc:
-        wr(f'nodes["{name}"].location = {location}\n')
-    for link in node_group.links:
-        fn, fs = socket_name(link.from_node, link.from_socket, link.from_node.outputs)
-        tn, ts = socket_name(link.to_node, link.to_socket, link.to_node.inputs)
-        wr(f"{var_name}.links.new(nodes[{fn}].outputs[{fs}], nodes[{tn}].inputs[{ts}])\n")
+    wr(
+        "node_groups = bpy.data.node_groups\n"
+        "for node_tree in list(node_groups):\n"
+        "    node_groups.remove(node_tree)\n\n"
+    )
+    for node_tree in node_groups:
+        wr(f'node_tree = node_groups.new("{node_tree.name}", "GeometryNodeTree")\n')
+        wr("nodes = node_tree.nodes\n")
+        for item in node_tree.interface.items_tree:
+            nm, io, st = item.name, item.in_out, item.socket_type
+            wr(f'node_tree.interface.new_socket("{nm}", in_out="{io}", socket_type="{st}")\n')
+        frame_locations = []
+        for node in node_tree.nodes:
+            input_dc = {}
+            for i, (name, it) in enumerate(node.inputs.items()):
+                if name and not it.is_unavailable and not it.links:
+                    value = getattr(it, "default_value", None)
+                    input_dc[i] = conv_value(name, value)
+            _s = f", {repr(input_dc)}" if input_dc else ""
+            wr(f'new(nodes, "{node.bl_idname}"{_s}')
+            use_custom_color = getattr(node, "use_custom_color", False)
+            for name in ATTRIBUTES:
+                if name == "color" and not use_custom_color:
+                    continue
+                value = getattr(node, name, None)
+                if name == "location" and isinstance(node, bpy.types.NodeFrame):
+                    frame_locations.append((node.name, conv_value(name, value)))
+                    continue
+                ignore = not value
+                if name == "width" and value == 140:
+                    ignore = True
+                if not ignore:
+                    out = conv_value(name, value)
+                    if name != "parent":
+                        out = repr(out)
+                    wr(f", {name}={out}")
+            wr(")\n")
+            if node.bl_idname == "GeometryNodeGroup" and node.node_tree:
+                wr(f'nodes["{node.name}"].node_tree = node_groups["{node.node_tree.name}"]\n')
+        for name, location in frame_locations:
+            wr(f'nodes["{name}"].location = {location}\n')
+        for link in node_tree.links:
+            fn, fs = socket_name(link.from_node, link.from_socket, link.from_node.outputs)
+            tn, ts = socket_name(link.to_node, link.to_socket, link.to_node.inputs)
+            wr(f"node_tree.links.new(nodes[{fn}].outputs[{fs}], nodes[{tn}].inputs[{ts}])\n")
+        wr("\n")
+    wr(f'modifier.node_group = node_groups["{target_node_tree.name}"]\n')
     return "".join(buf)
 
 
