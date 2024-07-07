@@ -5,12 +5,10 @@
 - `modifier = bpy.context.object.modifiers.new("GeometryNodes", "NODES")`
 - アドオンのコピーの内容をペースト
 """
-# mypy: ignore-errors
+
 from collections import defaultdict
 from typing import Iterable
 
-# ----ここから
-import bpy  # noqa: F401
 import mathutils
 
 ATTRIBUTES = {
@@ -30,6 +28,9 @@ ATTRIBUTES = {
     "use_custom_color": bool,
     "width": int,
 }
+
+# ----ここから
+import bpy  # noqa: E402
 
 
 def new(nodes, bl_idname, inputs=None, **kwargs):
@@ -108,6 +109,7 @@ def script_add_geometry(target_node_tree):
         "for node_tree in list(node_groups):\n"
         "    node_groups.remove(node_tree)\n\n"
     )
+    used_kwargs = set()
     for node_tree in node_groups:
         wr(f'node_tree = node_groups.new("{node_tree.name}", "GeometryNodeTree")\n')
         wr("nodes = node_tree.nodes\n")
@@ -117,13 +119,14 @@ def script_add_geometry(target_node_tree):
         frame_locations = []
         for node in node_tree.nodes:
             input_dc = {}
+            s1 = f'new(nodes, "{node.bl_idname}"'
             for i, (name, it) in enumerate(node.inputs.items()):
                 if name and not it.is_unavailable and not it.links:
                     value = getattr(it, "default_value", None)
                     input_dc[i] = conv_value(name, value)
-            _s = f", {repr(input_dc)}" if input_dc else ""
-            wr(f'new(nodes, "{node.bl_idname}"{_s}')
+            s2 = f", {repr(input_dc)}" if input_dc else ""
             use_custom_color = getattr(node, "use_custom_color", False)
+            kwargs_dc = {}
             for name in ATTRIBUTES:
                 if name == "color" and not use_custom_color:
                     continue
@@ -138,8 +141,23 @@ def script_add_geometry(target_node_tree):
                     out = conv_value(name, value)
                     if name != "parent":
                         out = repr(out)
-                    wr(f", {name}={out}")
-            wr(")\n")
+                    kwargs_dc[name] = out
+                    used_kwargs.add(name)
+            _s = ", ".join(f"{k}={v}" for k, v in kwargs_dc.items())
+            s3 = (f", {_s}" if _s else "") + ")"
+            ls1, ls2, ls3 = len(s1), len(s2), len(s3)
+            if ls1 + ls2 + ls3 <= 100:
+                wr(f"{s1}{s2}{s3}\n")
+            elif ls2 >= ls3 and ls1 + ls3 + 8 <= 100:
+                wr(f"inputs = {s2[2:]}\n")
+                wr(f"{s1}, inputs{s3}\n")
+            elif ls2 <= ls3 and ls1 + ls2 + 10 <= 100:
+                wr(f"kwargs = dict({s3[2:]}\n")
+                wr(f"{s1}{s2}, **kwargs)\n")
+            else:
+                wr(f"inputs = {s2[2:]}\n")
+                wr(f"kwargs = dict({s3[2:]}\n")
+                wr(f"{s1}, inputs, **kwargs)\n")
             if node.bl_idname == "GeometryNodeGroup" and node.node_tree:
                 wr(f'nodes["{node.name}"].node_tree = node_groups["{node.node_tree.name}"]\n')
         for name, location in frame_locations:
@@ -150,6 +168,8 @@ def script_add_geometry(target_node_tree):
             wr(f"node_tree.links.new(nodes[{fn}].outputs[{fs}], nodes[{tn}].inputs[{ts}])\n")
         wr("\n")
     wr(f'modifier.node_group = node_groups["{target_node_tree.name}"]\n')
+    s = ", ".join(f'"{k}": {ATTRIBUTES[k].__name__}' for k in used_kwargs)
+    buf.insert(0, f"ATTRIBUTES = {{{s}}}\n\n")
     return "".join(buf)
 
 
