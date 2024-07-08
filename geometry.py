@@ -168,6 +168,7 @@ def script_add_geometry(target_node_tree):
             wr(f"node_tree.links.new(nodes[{fn}].outputs[{fs}], nodes[{tn}].inputs[{ts}])\n")
         wr("\n")
     wr(f'modifier.node_group = node_groups["{target_node_tree.name}"]\n')
+    wr("modifier.node_group.is_modifier = True\n")
     s = ", ".join(f'"{k}": {ATTRIBUTES[k].__name__}' for k in used_kwargs)
     buf.insert(0, f"ATTRIBUTES = {{{s}}}\n\n")
     return "".join(buf)
