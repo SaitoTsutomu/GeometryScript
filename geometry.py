@@ -2,8 +2,7 @@
 単独で、オブジェクトとそのジオメトリーノードを作成するには、下記のようにします。
 - 下記のここからここまでをペースト
 - オブジェクトを作成または参照
-- `modifier = bpy.context.object.modifiers.new("GeometryNodes", "NODES")`
-- アドオンのコピーの内容をペースト
+- アドオンのコピーの内容をペーストし、先頭2行のコメントを解除
 """
 
 from collections import defaultdict
@@ -102,7 +101,7 @@ def script_add_geometry(target_node_tree):
     node_groups = topological_sort(bpy.data.node_groups)
     if node_groups is None:
         return ""
-    buf = []
+    buf = ['# modifier = bpy.context.object.modifiers.new("GeometryNodes", "NODES")\n']
     wr = buf.append
     wr(
         "node_groups = bpy.data.node_groups\n"
@@ -170,7 +169,7 @@ def script_add_geometry(target_node_tree):
     wr(f'modifier.node_group = node_groups["{target_node_tree.name}"]\n')
     wr("modifier.node_group.is_modifier = True\n")
     s = ", ".join(f'"{k}": {ATTRIBUTES[k].__name__}' for k in used_kwargs)
-    buf.insert(0, f"ATTRIBUTES = {{{s}}}\n\n")
+    buf.insert(0, f"# ATTRIBUTES = {{{s}}}\n\n")
     return "".join(buf)
 
 

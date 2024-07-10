@@ -42,7 +42,7 @@ class CGS_OT_geometry_exec(bpy.types.Operator):
             self.report({"WARNING"}, "Select object.")
             return {"CANCELLED"}
         code = str(bpy.context.window_manager.clipboard)
-        if not code.startswith("node_groups = "):
+        if not code.startswith("# ATTRIBUTES = "):
             self.report({"WARNING"}, "Not code.")
             return {"CANCELLED"}
         modifier = next(iter(m for m in obj.modifiers if m.type == "NODES"), None)
