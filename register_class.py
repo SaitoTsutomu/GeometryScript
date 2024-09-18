@@ -43,7 +43,7 @@ def register():
         importlib.reload(core)
         importlib.reload(geometry)
         ui_classes[:] = core.ui_classes
-    except (ModuleNotFoundError, AttributeError):
+    except (ImportError, AttributeError):
         ui_classes[:] = []
 
     for ui_class in ui_classes:
